@@ -1,0 +1,59 @@
+# pipeline
+
+import os
+genome_index = "/home/mgu/muskan/grch38_snp_tran/genome_snp_tran"
+gtf_file = "/home/mgu/muskan/hg38.ncbiRefSeq.gtf"
+rule all:
+    input:
+        "SRR7064988_htseqcount.csv",
+	"SRR7064988_pass_1_fastqc.html",
+        "SRR7064988_pass_2_fastqc.html"
+
+	
+        
+rule fastqc:
+    input:
+        r1 = "SRR7064988_pass_1.fastq",
+        r2 = "SRR7064988_pass_2.fastq"
+    output:
+        "SRR7064988_pass_1_fastqc.html",
+        "SRR7064988_pass_2_fastqc.html"
+    shell:
+        """
+            fastqc --nogroup {input.r1} &&
+            fastqc --nogroup {input.r2}
+        """
+rule hisat2_samtoolsview:
+    input:
+        r1 = "SRR7064988_pass_1.fastq",
+        r2 = "SRR7064988_pass_2.fastq"
+    output:
+        a = "SRR7064988.sam",
+        b = "SRR7064988.bam"
+    shell:
+        """
+        hisat2 -x {genome_index} -1 {input.r1} -2 {input.r2} -S {output.a} &&
+        samtools view -bS {output.a} > {output.b}
+
+        """
+rule samtools_sort_index:
+    input:
+       b = "SRR7064988.bam"
+    output:
+        c ="SRR7064988_sorted.bam",
+        d ="SRR7064988_sorted.bam.bai"
+    shell:
+        """
+        samtools sort {input.b} -o {output.c} &&
+        samtools index {output.c} > {output.d}
+
+        """
+rule htseq:
+    input:
+        bam ="SRR7064988_sorted.bam"
+    output:
+        csv = "SRR7064988_htseqcount.csv"
+    shell:
+        """
+        htseq-count -s no -f bam {input.bam} {gtf_file} > {output.csv}
+        """
